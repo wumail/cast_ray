@@ -7,6 +7,15 @@ const fov = Math.PI / 2;
 
 const bkg_color = new Vec3(0.2, 0.7, 0.8);
 
+class Light {
+  position;
+  intensity;
+  constructor(position, intensity) {
+    this.position = position;
+    this.intensity = intensity;
+  }
+}
+
 class Material {
   diffuse_color;
   constructor(diffuse_color) {
@@ -36,8 +45,7 @@ class Sphere {
   }
 }
 
-function cast_ray(orig, dir, spheres) {
-  const material = {};
+function scene_intersect(orig, dir, spheres, material, hit_info) {
   let sphere_dist = Infinity;
   for (let i = 0; i < spheres.length; i++) {
     const dist_info = {
@@ -45,21 +53,44 @@ function cast_ray(orig, dir, spheres) {
     };
     if (spheres[i].ray_intersect(orig, dir, dist_info)) {
       if (dist_info.dist < sphere_dist) {
+        hit_info.hit = orig.add(dir.multiply(dist_info.dist));
+        hit_info.N = hit_info.hit.subtract(spheres[i].center).normalize();
+        
         sphere_dist = dist_info.dist;
         material.diffuse_color = spheres[i].material.diffuse_color;
       }
     }
   }
-  if (sphere_dist < 1000) {
-    return material.diffuse_color;
+  return sphere_dist < 1000;
+}
+
+function cast_ray(orig, dir, spheres, lights) {
+  const material = {};
+  const hit_info = {
+    hit: new Vec3(0, 0, 0),
+    N: new Vec3(0, 0, 0),
+  };
+  if (!scene_intersect(orig, dir, spheres, material, hit_info)) {
+    return bkg_color;
   }
-  return bkg_color;
+  let diffuse_intensity = 0;
+  for (let i = 0; i < lights.length; i++) {
+    const light_dir = lights[i].position.subtract(hit_info.hit).normalize();
+    diffuse_intensity +=
+      lights[i].intensity * Math.max(0, light_dir.dot(hit_info.N));
+  }
+  return material.diffuse_color.multiply(diffuse_intensity);
 }
 
 function* render(ctx) {
   const imgData = ctx.createImageData(width, height);
   const ivory = new Material(new Vec3(0.4, 0.4, 0.3));
   const red_rubber = new Material(new Vec3(0.3, 0.1, 0.1));
+
+  const lights = [];
+  lights.push(new Light(new Vec3(-20, 20, 20), 1.5));
+  lights.push(new Light(new Vec3(30, 50, -25), 1.8));
+  lights.push(new Light(new Vec3(30, 20, 30), 1.7));
 
   const spheres = [];
   spheres.push(new Sphere(new Vec3(-3, 0, -16), 2, ivory));
@@ -73,11 +104,11 @@ function* render(ctx) {
       const y = -(j + 0.5) + height / 2;
       const z = -height / 2 / Math.tan(fov / 2);
       const dir = new Vec3(x, y, z).normalize();
-      const color = cast_ray(new Vec3(0, 0, 0), dir, spheres);
+      const color = cast_ray(new Vec3(0, 0, 0), dir, spheres, lights);
       const index = (i + j * width) * 4;
-      imgData.data[index] = color[0] * 255;
-      imgData.data[index + 1] = color[1] * 255;
-      imgData.data[index + 2] = color[2] * 255;
+      imgData.data[index] = Math.max(Math.min(color[0], 1), 0) * 255;
+      imgData.data[index + 1] = Math.max(Math.min(color[1], 1), 0) * 255;
+      imgData.data[index + 2] = Math.max(Math.min(color[2], 1), 0) * 255;
       imgData.data[index + 3] = 255;
     }
     yield imgData;
