@@ -21,10 +21,12 @@ class Material {
   diffuse_color;
   albedo;
   specular_exponent;
-  constructor(diffuse_color, albedo = [1, 0, 0, 0], specular_exponent = 0) {
+  refractive_index
+  constructor(diffuse_color, albedo = [1, 0, 0, 0], specular_exponent = 0, refractive_index = 0) {
     this.diffuse_color = diffuse_color;
     this.albedo = albedo;
     this.specular_exponent = specular_exponent;
+    this.refractive_index = refractive_index
   }
 }
 
@@ -75,17 +77,31 @@ function scene_intersect(orig, dir, spheres, material, hit_info) {
   return sphere_dist < 1000;
 }
 
-function cast_ray(orig, dir, spheres, lights) {
+function cast_ray(orig, dir, spheres, lights, depth = 0) {
   const material = {};
   const hit_info = {
     hit: new Vec3(0, 0, 0),
     N: new Vec3(0, 0, 0),
   };
-  if (!scene_intersect(orig, dir, spheres, material, hit_info)) {
+  if (depth > 4 || !scene_intersect(orig, dir, spheres, material, hit_info)) {
     return bkg_color;
   }
   let diffuse_light_intensity = 0;
   let specular_light_intensity = 0;
+
+  const reflect_dir = reflect(dir, hit_info.N).normalize();
+  const reflect_orig =
+    reflect_dir.dot(hit_info.N) < 0
+      ? hit_info.hit.subtract(hit_info.N.multiply(1e-3))
+      : hit_info.hit.add(hit_info.N.multiply(1e-3));
+  const reflect_color = cast_ray(
+    reflect_orig,
+    reflect_dir,
+    spheres,
+    lights,
+    depth + 1
+  );
+
   for (let i = 0; i < lights.length; i++) {
     const light_dir = lights[i].position.subtract(hit_info.hit).normalize();
     const light_distance = lights[i].position
@@ -96,7 +112,7 @@ function cast_ray(orig, dir, spheres, lights) {
       light_dir.dot(hit_info.N) < 0
         ? hit_info.hit.subtract(hit_info.N.multiply(1e-3))
         : hit_info.hit.add(hit_info.N.multiply(1e-3));
-        
+
     const shadow_hit_info = {
       hit: new Vec3(0, 0, 0),
       N: new Vec3(0, 0, 0),
@@ -124,7 +140,8 @@ function cast_ray(orig, dir, spheres, lights) {
   }
   return material.diffuse_color
     .multiply(diffuse_light_intensity * material.albedo[0])
-    .add(white.multiply(specular_light_intensity * material.albedo[1]));
+    .add(white.multiply(specular_light_intensity * material.albedo[1]))
+    .add(reflect_color.multiply(material.albedo[2]));
 }
 
 function* render(ctx) {
@@ -135,6 +152,11 @@ function* render(ctx) {
     [0.9, 0.1, 0.0, 0.0],
     10
   );
+  const mirror = new Material(
+    new Vec3(1.0, 1.0, 1.0),
+    [0.0, 10.0, 0.8, 0.0],
+    1425,
+  );
 
   const lights = [];
   lights.push(new Light(new Vec3(-20, 20, 20), 1.5));
@@ -143,9 +165,9 @@ function* render(ctx) {
 
   const spheres = [];
   spheres.push(new Sphere(new Vec3(-3, 0, -16), 2, ivory));
-  spheres.push(new Sphere(new Vec3(-1.0, -1.5, -12), 2, red_rubber));
+  spheres.push(new Sphere(new Vec3(-1.0, -1.5, -12), 2, mirror));
   spheres.push(new Sphere(new Vec3(1.5, -0.5, -18), 3, red_rubber));
-  spheres.push(new Sphere(new Vec3(7, 5, -18), 4, ivory));
+  spheres.push(new Sphere(new Vec3(7, 5, -18), 4, mirror));
 
   for (let j = 0; j < height; j++) {
     for (let i = 0; i < width; i++) {
