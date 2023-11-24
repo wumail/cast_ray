@@ -6,20 +6,35 @@
     <title>whatever</title>
   </head>
   <body>
-    <canvas id="canvas" width="7818" height="3808"></canvas>
+    <canvas id="canvas" width="1024" height="768"></canvas>
+    <canvas id="env" width="7818" height="3808"></canvas>
+    <style>
+      #env {
+        display: none;
+      }
+    </style>
     <script type="module">
       import render from "./index.js";
       const canvas = document.getElementById("canvas");
+      const env = document.getElementById("env");
       const ctx = canvas.getContext("2d");
-      const generator = render(ctx);
-      const renderTask = setInterval(() => {
-        const value = generator.next().value;
-        if (value) {
-          ctx.putImageData(value, 0, 0);
-        }else {
-          clearInterval(renderTask)
-        }
-      }, 0)
+      const image = new Image();
+      image.src = "./envmap.jpg";
+      image.onload = () => {
+        const envCtx = env.getContext("2d");
+        const ctx = canvas.getContext("2d");
+        envCtx.drawImage(image, 0, 0);
+        const envmap = envCtx.getImageData(0, 0, image.width, image.height);
+        const pixelGenerator = render(ctx, envmap);
+        const renderTask = setInterval(function () {
+          const value = pixelGenerator.next().value;
+          if (!value) {
+            clearInterval(renderTask);
+          } else {
+            ctx.putImageData(value, 0, 0);
+          }
+        }, 0);
+      };
     </script>
   </body>
 </html>
