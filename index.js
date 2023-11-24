@@ -23,7 +23,7 @@ class Material {
   specular_exponent;
   refractive_index;
   constructor(
-    diffuse_color,
+    diffuse_color = bkg_color,
     albedo = [1, 0, 0, 0],
     specular_exponent = 0,
     refractive_index = 1
