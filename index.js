@@ -88,6 +88,32 @@ function cast_ray(orig, dir, spheres, lights) {
   let specular_light_intensity = 0;
   for (let i = 0; i < lights.length; i++) {
     const light_dir = lights[i].position.subtract(hit_info.hit).normalize();
+    const light_distance = lights[i].position
+      .subtract(hit_info.hit)
+      .getLength();
+
+    const shadow_orig =
+      light_dir.dot(hit_info.N) < 0
+        ? hit_info.hit.subtract(hit_info.N.multiply(1e-3))
+        : hit_info.hit.add(hit_info.N.multiply(1e-3));
+        
+    const shadow_hit_info = {
+      hit: new Vec3(0, 0, 0),
+      N: new Vec3(0, 0, 0),
+    };
+    const tmpMaterial = {};
+    if (
+      scene_intersect(
+        shadow_orig,
+        light_dir,
+        spheres,
+        tmpMaterial,
+        shadow_hit_info
+      ) &&
+      shadow_hit_info.hit.subtract(shadow_orig).getLength() < light_distance
+    ) {
+      continue;
+    }
     diffuse_light_intensity +=
       lights[i].intensity * Math.max(0, light_dir.dot(hit_info.N));
     specular_light_intensity +=
