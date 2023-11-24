@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>whatever</title>
+  </head>
+  <body>
+    <canvas id="canvas" width="7818" height="3808"></canvas>
+    <script type="module">
+      import render from "./index.js";
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const generator = render(ctx);
+      const renderTask = setInterval(() => {
+        const value = generator.next().value;
+        if (value) {
+          ctx.putImageData(value, 0, 0);
+        }else {
+          clearInterval(renderTask)
+        }
+      }, 0)
+    </script>
+  </body>
+</html>
